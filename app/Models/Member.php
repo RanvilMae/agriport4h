@@ -36,7 +36,9 @@ class Member extends Model
         'scholarship',
         'lsa_level',
         'lsa_type',
-        'training_course'
+        'training_course',
+        'member_id',
+        'uid'
     ];
 
     /**

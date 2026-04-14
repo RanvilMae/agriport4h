@@ -61,7 +61,7 @@
                         <select name="region_id" required 
                                 class="w-full px-5 py-4 mt-2 text-xs font-bold border-gray-100 bg-gray-50/50 rounded-2xl focus:ring-emerald-500 focus:border-emerald-500 transition-all @error('region_id') border-rose-200 bg-rose-50/30 @enderror">
                             
-                            @if(auth()->user()->hasRole('admin'))
+                            @if(auth()->user()->hasRole('Admin'))
                                 <option value="" disabled selected>Select assigned region...</option>
                                 @foreach($regions as $region)
                                     <option value="{{ $region->id }}" {{ old('region_id') == $region->id ? 'selected' : '' }}>

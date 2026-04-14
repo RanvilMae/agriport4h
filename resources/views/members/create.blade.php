@@ -53,7 +53,49 @@
             }
         }" class="max-w-6xl px-4 pb-20 mx-auto mt-8">
         @csrf
+        {{-- Success and Error Alerts --}}
+        <div class="max-w-6xl px-4 mx-auto mt-6">
+            @if (session('success'))
+                <div x-data="{ show: true }" 
+                    x-show="show" 
+                    x-transition:enter="transition ease-out duration-300"
+                    x-transition:enter-start="opacity-0 transform -translate-y-2"
+                    x-transition:enter-end="opacity-100 transform translate-y-0"
+                    class="flex items-center justify-between p-4 mb-4 border-l-4 border-green-500 shadow-sm bg-green-50 rounded-xl">
+                    <div class="flex items-center">
+                        <i class="mr-3 text-green-500 fas fa-check-circle"></i>
+                        <p class="text-sm font-bold text-green-800">{{ session('success') }}</p>
+                    </div>
+                    <button @click="show = false" class="text-green-500 hover:text-green-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            @endif
 
+            @if ($errors->any())
+                <div x-data="{ show: true }" 
+                    x-show="show" 
+                    x-transition:enter="transition ease-out duration-300"
+                    x-transition:enter-start="opacity-0 transform -translate-y-2"
+                    x-transition:enter-end="opacity-100 transform translate-y-0"
+                    class="p-4 mb-4 border-l-4 border-red-500 shadow-sm bg-red-50 rounded-xl">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center">
+                            <i class="mr-3 text-red-500 fas fa-exclamation-triangle"></i>
+                            <p class="text-sm font-black text-red-800 uppercase">Registration Failed</p>
+                        </div>
+                        <button @click="show = false" class="text-red-500 hover:text-red-700">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <ul class="ml-8 list-disc">
+                        @foreach ($errors->all() as $error)
+                            <li class="text-xs font-medium text-red-700">{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+        </div>
         {{-- Section 1: Identity & Demographics --}}
         <div class="bg-white rounded-[2rem] shadow-sm border border-gray-100 mb-8 overflow-hidden">
             <div class="flex items-center justify-between px-8 py-4 border-b border-gray-100 bg-gray-50/50">
@@ -351,14 +393,18 @@
                         <label class="block text-[10px] font-bold text-gray-400 uppercase mb-4 ml-1">ATI Services Availed</label>
                         <div class="flex flex-wrap gap-3">
                             @foreach(['LSA', 'Internship', 'Scholarship', 'Training', 'None'] as $service)
-                                <button type="button" 
-                                    @click="toggleService('{{ $service }}')"
-                                    :class="services.includes('{{ $service }}') ? 'bg-green-600 border-green-600 text-white shadow-md' : 'bg-white border-gray-200 text-gray-600 hover:border-green-400'"
-                                    class="px-6 py-2.5 rounded-2xl border font-bold text-sm transition-all flex items-center">
-                                    <span x-show="services.includes('{{ $service }}')" class="mr-2">✓</span>
-                                    {{ $service }}
-                                </button>
-                                <input type="checkbox" name="services[]" value="{{ $service }}" :checked="services.includes('{{ $service }}')" class="hidden">
+                                <label class="cursor-pointer">
+                                    <input type="checkbox" 
+                                        name="services[]" 
+                                        value="{{ $service }}" 
+                                        class="hidden"
+                                        @click="toggleService('{{ $service }}')"
+                                        :checked="services.includes('{{ $service }}')">
+                                    <span :class="services.includes('{{ $service }}') ? 'bg-green-600 border-green-600 text-white shadow-md' : 'bg-white border-gray-200 text-gray-600 hover:border-green-400'"
+                                        class="block px-4 py-2 transition-all border rounded-xl">
+                                        {{ $service }}
+                                    </span>
+                                </label>
                             @endforeach
                         </div>
                     </div>

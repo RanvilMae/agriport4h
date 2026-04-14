@@ -71,10 +71,12 @@
         </div>
 
         <div class="qr-section">
-            {{-- Note: Use base64 for images in DomPDF --}}
-            <img src="data:image/png;base64, {!! base64_encode(QrCode::format('png')->size(120)->generate($member->email)) !!} ">
+            {{-- 1. Must use format('png') for the base64 conversion --}}
+            {{-- 2. Fixed the bracket nesting --}}
+            <img src="data:image/png;base64, {!! base64_encode(QrCode::format('png')->size(150)->margin(0)->generate(route('members.show', $member->id))) !!} ">
+            
             <div style="font-family: monospace; font-size: 8px; color: #64748b; margin-top: 5px;">
-                {{ $member->email }}
+                {{ $member->member_id }}
             </div>
         </div>
 

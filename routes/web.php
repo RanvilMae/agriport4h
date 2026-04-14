@@ -25,6 +25,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Members Management
     Route::resource('members', MemberController::class);
+    Route::get('/members/verify-action', [MemberController::class, 'verify'])->name('members.verify');
     Route::get('/members/{member}/id', [MemberController::class, 'showId'])->name('members.id');
     Route::get('/members/{member}/download-id', [MemberController::class, 'downloadIdCard'])->name('members.download-id');
 

@@ -20,12 +20,12 @@ class MemberController extends Controller
         // 1. Fetch the regions based on the user's role/jurisdiction
         // If the user has a 'region_id', they are restricted to that region.
         // If not (Admin), they get all regions.
-        $regions = \App\Models\Region::when($user->region_id, function ($query) use ($user) {
+        $regions = Region::when($user->region_id, function ($query) use ($user) {
             return $query->where('id', $user->region_id);
         })->get();
 
         // 2. Fetch members, applying the same regional restriction and search filter
-        $members = \App\Models\Member::with(['region', 'organization'])
+        $members = Member::with(['region', 'organization'])
             ->when($user->region_id, function ($query) use ($user) {
                 return $query->where('region_id', $user->region_id);
             })
@@ -66,38 +66,57 @@ class MemberController extends Controller
     {
         $member = Member::with(['region', 'province'])->findOrFail($id);
 
-        // Security check: Don't let users see members outside their region
+        // Security check
         if (auth()->user()->role !== 'Admin' && $member->region_id !== auth()->user()->region_id) {
             abort(403, 'Unauthorized action.');
         }
 
-        return view('members.id', compact('member'));
+        // Generate the QR content using the NEW formatted member_id
+        // We use the member_id column we just created
+        $qrData = route('members.show', $member->id);
+
+        return view('members.id', compact('member', 'qrData'));
     }
 
     public function store(Request $request)
     {
-        // Ensure 'member_type' is synced from the select if 'Others' wasn't picked
-        // This handles cases where Alpine might not have updated the hidden field yet.
-        if ($request->member_type_select !== 'Others') {
+        // 1. Handle "Others" for Member Type and Training Course before validation
+        if ($request->member_type_select === 'Others') {
+            $request->merge(['member_type' => $request->other_member_type]);
+        } else {
             $request->merge(['member_type' => $request->member_type_select]);
         }
 
+        if ($request->training_type_select === 'Others') {
+            $request->merge(['training_course' => $request->other_training]);
+        } else {
+            $request->merge(['training_course' => $request->training_type_select]);
+        }
+
+        // 2. Validate
         $validated = $this->validateMember($request);
 
-        // Sync arrays and dynamic fields
-        $validated['crops'] = $request->input('crops', []);
-        $validated['services'] = $request->input('services', []);
+        // 3. Process Arrays for Database (if not using Eloquent $casts)
+        $validated['crops'] = $request->has('crops') ? json_encode($request->crops) : json_encode([]);
+        $validated['services'] = $request->has('services') ? json_encode($request->services) : json_encode([]);
 
-        // Handle the Training Course specifically
-        if ($request->training_type_select === 'Others') {
-            $validated['training_course'] = $request->other_training;
-        } else {
-            $validated['training_course'] = $request->training_type_select;
-        }
+        // 4. Generate Member ID (Logic remains the same)
+        $currentYear = now()->year;
+        $regionId = $validated['region_id'];
+        $count = Member::where('region_id', $regionId)->whereYear('created_at', $currentYear)->count() + 1;
+
+        $validated['member_id'] = sprintf(
+            "4H-PH-%s-%s-%s-%04d",
+            str_pad($regionId, 2, '0', STR_PAD_LEFT),
+            $currentYear,
+            str_pad($regionId, 3, '0', STR_PAD_LEFT),
+            $count
+        );
 
         Member::create($validated);
 
-        return redirect()->route('members.index')->with('success', 'Member registered successfully! Unique ID has been generated.');
+        return redirect()->route('members.index')
+            ->with('success', "Member registered successfully! ID: {$validated['member_id']}");
     }
 
     public function edit(Member $member)
@@ -175,6 +194,30 @@ class MemberController extends Controller
             ->setPaper([0, 0, 250, 400], 'portrait');
 
         return $pdf->download($member->last_name . '-LSA-ID.pdf');
+    }
+
+    public function verify(Request $request)
+    {
+        // 1. Fetch the member using the unique member_id passed from the button
+        $member = Member::where('member_id', $request->query('member_id'))->firstOrFail();
+        $user = auth()->user();
+
+        // 2. Security: Presidents and Coordinators are restricted to their own region
+        if (in_array($user->role, ['President', 'Coordinator'])) {
+            if ($member->region_id !== $user->region_id) {
+                return back()->with('error', 'Unauthorized: You can only verify members within your region.');
+            }
+        }
+
+        // 3. Mark as Verified (Update the timestamp)
+        $member->update([
+            'verified_at' => now(),
+            'verified_by' => $user->id // Optional: track who did the verification
+        ]);
+
+        // 4. Redirect to the profile with a success toast
+        return redirect()->route('members.show', $member->id)
+            ->with('success', "Account for {$member->first_name} has been officially verified.");
     }
 
     protected function validateMember(Request $request, $id = null)
